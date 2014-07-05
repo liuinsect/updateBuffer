@@ -1,8 +1,7 @@
-package com.liusoft.tools;
+package com.liusoft.tools.updatebuffer;
 
 
 import java.util.concurrent.ConcurrentHashMap;
-import com.liusoft.tools.UpdateBuffer.Entry;
 
 /**
  * 单线程方式处理
@@ -29,7 +28,7 @@ public abstract class Handler {
         this.triggerStrategy = triggerStrategy;
     }
 
-    public void update(Entry entry){
+    public void update(UpdateBuffer.Entry entry){
         doUpdate(entry.getKey(), entry.getValue());
         if( triggerStrategy.trigger( entry.getKey() ) ){
             //做一些清空buffer的策略。
@@ -44,20 +43,14 @@ public abstract class Handler {
     }
 
     protected boolean initBufferline(String key,Object object){
-        synchronized (buffer){//可以不需要同步，因为，单线程再操作
-            if( buffer.get(key) == null ){
-                buffer.put(key,object);
-                return true;
-            }
-            return false;
+        if( buffer.get(key) == null ){
+            buffer.put(key,object);
+            return true;
         }
+        return false;
     }
 
-    Object getFromBuffer(String key){
-        return buffer.get(key);
-    }
-
-    protected abstract Object doUpdate(String key,Object value);
+    protected abstract void doUpdate(String key,Object value);
 
 
 }

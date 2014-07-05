@@ -1,4 +1,4 @@
-package com.liusoft.tools;
+package com.liusoft.tools.updatebuffer;
 
 /**
  * 单线程方式处理

@@ -1,4 +1,4 @@
-package com.liusoft.tools;
+package com.liusoft.tools.updatebuffer;
 
 import org.apache.log4j.Logger;
 
@@ -19,17 +19,19 @@ public class UpdateBuffer {
 
     private static Logger logger = Logger.getLogger(String.valueOf(UpdateBuffer.class));
 
-    private ConcurrentHashMap<Integer,HandlThread> handles = new ConcurrentHashMap<Integer,HandlThread>();
+//    private ConcurrentHashMap<Integer,HandlThread> handles = new ConcurrentHashMap<Integer,HandlThread>();
 
     private final int workerSize = 20;
+
+    private HandlThread[] handlThreads = new HandlThread[workerSize];
 
     private Handler handler;
 
     private ThreadPoolExecutor threadPool = new ThreadPoolExecutor(workerSize, workerSize,
-                                                                       60L, TimeUnit.SECONDS,
-                                                                       new LinkedBlockingQueue<Runnable>(),
-                                                                       new BufferThreadFactory(),
-                                                                       new ThreadPoolExecutor.CallerRunsPolicy());
+            60L, TimeUnit.SECONDS,
+            new LinkedBlockingQueue<Runnable>(),
+            new BufferThreadFactory(),
+            new ThreadPoolExecutor.CallerRunsPolicy());
 
     private ReentrantLock handleMapLock = new ReentrantLock();
 
@@ -41,19 +43,19 @@ public class UpdateBuffer {
     }
 
     public void update(final String key , final Object value ){
+
         int code = key.hashCode();
         //取绝对值后，再取摸
         int pos = Math.abs(code)%workerSize;
-        HandlThread handlThread = handles.get(pos);
+        HandlThread handlThread = handlThreads[pos];
         if( handlThread == null ){
-            handlThread = new HandlThread(handler,pos,this);
             try{
                 handleMapLock.lock();
-                HandlThread tmpThread = handles.get(pos);
+                HandlThread tmpThread = handlThreads[pos];
                 if( tmpThread == null ){
-                    handles.put(pos, handlThread);//保存映射关系
+                    handlThread = new HandlThread(handler,pos,this);
+                    handlThreads[pos] = handlThread;//保存映射关系
                     threadPool.execute(handlThread);//启动该线程
-
                 }else{
                     //如果其他KEY已经 创建handlerThread 则entry应该添加在已经创建的queue中
                     handlThread = tmpThread;
@@ -66,6 +68,7 @@ public class UpdateBuffer {
         }
         handlThread.addToQueue(new Entry(key, value));
 
+
     }
 
     /**
@@ -74,18 +77,14 @@ public class UpdateBuffer {
      */
     public void removeHandler(int pos,HandlThread handlThread){
         try{
-            handleMapLock.lock();
-            HandlThread  ht = handles.get(pos);
-            if( ht!= null && ht.equals(handlThread) ){
-                handles.remove(pos);
+            if( pos < 0  ){
+                return;
             }
+            handleMapLock.lock();
+            handlThreads[pos]=null;
         }finally {
             handleMapLock.unlock();
         }
-    }
-
-    public Object getFromBuffer(String key){
-        return handler.getFromBuffer(key);
     }
 
     public static class Entry{
@@ -117,7 +116,7 @@ public class UpdateBuffer {
 
 
 
-    class BufferThreadFactory implements ThreadFactory {
+    class BufferThreadFactory implements  ThreadFactory{
         private final AtomicInteger threadNum = new AtomicInteger(0);
 
         public BufferThreadFactory() {

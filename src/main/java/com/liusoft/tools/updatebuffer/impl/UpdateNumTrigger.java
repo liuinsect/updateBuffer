@@ -1,6 +1,6 @@
-package com.liusoft.tools.impl;
+package com.liusoft.tools.updatebuffer.impl;
 
-import com.liusoft.tools.TriggerStrategy;
+import com.liusoft.tools.updatebuffer.TriggerStrategy;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -15,10 +15,11 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class UpdateNumTrigger implements TriggerStrategy {
 
+    //可以不使用atomic包装 只有单线程在操作
     protected ConcurrentHashMap<String,AtomicInteger> counter = new ConcurrentHashMap<String,AtomicInteger>();
 
     private final int minUpdateNum = 10;
-
+    //可以不使用atomic包装 只有单线程在操作
     private AtomicInteger THRESHOLD = new AtomicInteger( minUpdateNum );
 
     @Override

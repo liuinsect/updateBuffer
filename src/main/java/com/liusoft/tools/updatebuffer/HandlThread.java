@@ -1,10 +1,9 @@
-package com.liusoft.tools;
+package com.liusoft.tools.updatebuffer;
 
+import org.apache.log4j.Logger;
 
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
-import com.liusoft.tools.UpdateBuffer.Entry;
-import org.apache.log4j.Logger;
 
 /**
  * Created with IntelliJ IDEA.
@@ -17,7 +16,7 @@ public class HandlThread implements Runnable {
 
     private Logger logger = Logger.getLogger(HandlThread.class);
 
-    private LinkedBlockingQueue<Entry> queue = new LinkedBlockingQueue<Entry>();
+    private LinkedBlockingQueue<UpdateBuffer.Entry> queue = new LinkedBlockingQueue<UpdateBuffer.Entry>();
 
     private volatile  boolean cancel = false;
 
@@ -27,7 +26,7 @@ public class HandlThread implements Runnable {
 
     private UpdateBuffer updateBuffer;
 
-    public HandlThread(Handler handler,int position , UpdateBuffer updateBuffer) {
+    public HandlThread(Handler handler,int position ,UpdateBuffer updateBuffer) {
         this.handler = handler;
         this.pos = new AtomicInteger(position);
         this.updateBuffer = updateBuffer;
@@ -38,26 +37,33 @@ public class HandlThread implements Runnable {
         try{
             for(;;){
                 if( cancel ){
-                    updateBuffer.removeHandler(pos.get(),this);
                     break;
                 }
-                try {
-                    Entry entry = queue.take();
-                    handler.fixThreshold(queue.size());
-                    handler.update(entry);
-                } catch (InterruptedException e) {
-                    break;
-                }
+                //打断的异常单独响应，响应后当前线程退出
+                UpdateBuffer.Entry entry = queue.take();
+                //如果内部执行异常抛出，当前线程退出，丢失已在队列里的更新请求
+                //下次再重建线程
+                handler.fixThreshold(queue.size());
+                handler.update(entry);
 
             }
+        }catch (InterruptedException ine){
+            logger.error(Thread.currentThread().getName()+",pos:"+pos+",has InterruptedException:",ine);
         }catch (Exception e){
             logger.error(Thread.currentThread().getName()+",pos:"+pos+",has exception:",e);
-            cancel = true;
-            updateBuffer.removeHandler(pos.get(),this);
+        }finally {
+            cleanSelf();
         }
     }
 
-    public void addToQueue(Entry entry){
+    /**
+     * 将当前线程和updateBuffer里的映射关系解除
+     */
+    private void cleanSelf(){
+        updateBuffer.removeHandler(pos.get(),this);
+    }
+
+    public void addToQueue(UpdateBuffer.Entry entry){
         queue.add(entry);
     }
     //TODO 入口
